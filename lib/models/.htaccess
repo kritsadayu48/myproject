@@ -1,0 +1,4 @@
+RewriteEngine On
+
+RewriteRule ^login/?$ ./models/login_api.php [NC,L]
+RewriteRule ^insertmem/?$ ./apis/apiinsertmember.php [NC,L]
