@@ -3,8 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:project1/model/member.dart';
 import 'package:project1/views/bookingscreen.dart';
+import 'package:project1/views/deluxe_room.dart';
 import 'package:project1/views/loginscreen_ui.dart';
 import 'package:project1/sql/rooms.dart' as r;
+import 'package:project1/views/standard_room.dart';
+import 'package:project1/views/suite_room.dart';
+import 'package:project1/views/userdeails.dart';
 
 class HomeScreenUI extends StatelessWidget {
   const HomeScreenUI({Key? key, required this.member}) : super(key: key);
@@ -64,9 +68,12 @@ class TabBarExample extends StatelessWidget {
         ),
         body: TabBarView(
           children: <Widget>[
-            NestedTabBar('Flights', member: member),
-            NestedTabBar('Trips', member: member),
-            NestedTabBar('Explore', member: member),
+            NestedTabBar(member: member),
+            // ตรวจสอบก่อนที่จะสร้างหน้าจอ BookingScreenUI
+            member != null && member.id != null
+                ? BookingScreenUI(userId: member.id)
+                : Container(child: Text('User ID is null or member is null')),
+            UserDetailsUI(),
           ],
         ),
       ),
@@ -75,9 +82,8 @@ class TabBarExample extends StatelessWidget {
 }
 
 class NestedTabBar extends StatefulWidget {
-  const NestedTabBar(this.outerTab, {Key? key, required this.member});
+  const NestedTabBar({Key? key, required this.member});
 
-  final String outerTab;
   final Member member;
 
   @override
@@ -91,7 +97,7 @@ class _NestedTabBarState extends State<NestedTabBar>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 1, vsync: this);
   }
 
   @override
@@ -108,57 +114,53 @@ class _NestedTabBarState extends State<NestedTabBar>
           child: TabBarView(
             controller: _tabController,
             children: <Widget>[
-              // แท็บแรก: ข่าวสาร
-              ListView.builder(
-                itemCount:
-                    1, // จำนวนรายการข่าวสาร (สามารถเปลี่ยนแปลงตามความต้องการ)
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text('ข่าวสารที่ ${index + 1}'),
-                    subtitle: Text('รายละเอียดข่าวสารที่ ${index + 1}'),
-                  );
-                },
-              ),
-              // แท็บที่สอง: รายการห้องพัก
               FutureBuilder<List<Map<String, dynamic>>>(
-                future: r.getRooms(), // เรียกใช้เมธอดเพื่อดึงข้อมูลห้องพัก
+                future: r.getRooms(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return CircularProgressIndicator(); // แสดง Indicator ในระหว่างโหลดข้อมูล
+                    return CircularProgressIndicator();
                   } else if (snapshot.hasError) {
-                    return Text(
-                        'Error: ${snapshot.error}'); // แสดงข้อความเมื่อเกิดข้อผิดพลาดในการโหลดข้อมูล
+                    return Text('Error: ${snapshot.error}');
                   } else {
-                    // แสดงรายการห้องพัก
                     return ListView.builder(
                       itemCount: snapshot.data!.length,
                       itemBuilder: (context, index) {
                         var room = snapshot.data![index];
-                        return GestureDetector(
+
+                        return ListTile(
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => BookingScreenUI()),
-                            );
+                            if (room['room_type'] == 'standardRoom') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => StandardRoomUI( 
+                                      roomType: 'Standard Room',
+                                      userId: widget.member.id ?? 0),
+                                ),
+                              );
+                            } else if (room['room_type'] == 'deluxeRoom') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DeluxeRoomUI(
+                                      roomType: 'Deluxe Room',
+                                      userId: widget.member.id ?? 0),
+                                ),
+                              );
+                            } else if (room['room_type'] == 'suiteRoom') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SuiteRoomUI(
+                                      roomType: 'Suite Room',
+                                      userId: widget.member.id ?? 0),
+                                ),
+                              );
+                            }
                           },
-                          child: ListTile(
-                            title: Text(room['room_type'] ?? ''),
-                            subtitle: Text(
-                              'ราคา: ${room['price'] ?? ''} บาท\nสิ่งอำนวยความสะดวก: ${room['amenities'] ?? ''}',
-                            ),
-                            leading: FutureBuilder<Widget>(
-                              future: loadImage(room['image'] ?? ''),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return CircularProgressIndicator();
-                                } else if (snapshot.hasError) {
-                                  return Icon(Icons.error);
-                                } else {
-                                  return snapshot.data ?? Icon(Icons.image);
-                                }
-                              },
-                            ),
+                          title: Text(room['room_type'] ?? ''),
+                          subtitle: Text(
+                            'ราคา: ${room['price'] ?? ''} บาท\nสิ่งอำนวยความสะดวก: ${room['amenities'] ?? ''}',
                           ),
                         );
                       },
@@ -174,10 +176,8 @@ class _NestedTabBarState extends State<NestedTabBar>
   }
 }
 
-// ฟังก์ชั่นสำหรับโหลดรูปภาพจาก URL หรือ Path
 Future<Widget> loadImage(String url) async {
   try {
-    // ใช้ File API ในการอ่านข้อมูลรูปภาพ
     final file = File(url);
     final bytes = await file.readAsBytes();
     final image = Image.memory(bytes);
@@ -187,3 +187,5 @@ Future<Widget> loadImage(String url) async {
     return Icon(Icons.error);
   }
 }
+
+

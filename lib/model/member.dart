@@ -26,6 +26,8 @@ class Member {
     message = json['message'];
   }
 
+  get id => null;
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = new Map<String, dynamic>();
     data['imemId'] = this.memId;
